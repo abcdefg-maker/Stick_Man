@@ -64,6 +64,9 @@ class GameScene extends Phaser.Scene {
         // 创建分数显示
         this.createScoreDisplay();
 
+        // 创建暂停按钮
+        this.createPauseButton();
+
         // 创建雪花效果
         this.createSnowEffect();
 
@@ -277,7 +280,17 @@ class GameScene extends Phaser.Scene {
         const STATES = GameplayConfig.STATES;
 
         // 触摸/鼠标按下
-        this.input.on('pointerdown', () => {
+        this.input.on('pointerdown', (pointer) => {
+            // 检查是否点击了暂停按钮区域
+            const canvas = LayoutConfig.CANVAS;
+            const pauseBtnX = canvas.WIDTH - 60;
+            const pauseBtnY = 60;
+            const pauseBtnRadius = 30;
+            const dist = Phaser.Math.Distance.Between(pointer.x, pointer.y, pauseBtnX, pauseBtnY);
+            if (dist <= pauseBtnRadius) {
+                return; // 点击在暂停按钮上，不处理游戏逻辑
+            }
+
             if (this.gameState === STATES.READ_MOUSE) {
                 this.isPointerDown = true;
                 this.playSound('sfx-stick');
@@ -594,7 +607,51 @@ class GameScene extends Phaser.Scene {
         });
     }
 
+    /**
+     * 创建暂停按钮
+     */
+    createPauseButton() {
+        const canvas = LayoutConfig.CANVAS;
+
+        // 创建暂停按钮（使用 Graphics 绘制两条竖线）
+        this.pauseButton = this.add.graphics();
+        const btnX = canvas.WIDTH - 60;
+        const btnY = 60;
+        const barWidth = 8;
+        const barHeight = 30;
+        const barGap = 10;
+
+        // 绘制按钮背景（圆形）
+        this.pauseButton.fillStyle(0x000000, 0.3);
+        this.pauseButton.fillCircle(btnX, btnY, 30);
+
+        // 绘制两条竖线（暂停图标）
+        this.pauseButton.fillStyle(0xffffff, 0.9);
+        this.pauseButton.fillRect(btnX - barGap - barWidth / 2, btnY - barHeight / 2, barWidth, barHeight);
+        this.pauseButton.fillRect(btnX + barGap - barWidth / 2, btnY - barHeight / 2, barWidth, barHeight);
+
+        // 设置交互
+        this.pauseButton.setInteractive(
+            new Phaser.Geom.Circle(btnX, btnY, 30),
+            Phaser.Geom.Circle.Contains
+        );
+
+        this.pauseButton.on('pointerdown', () => {
+            if (!PauseManager.isPaused()) {
+                this.playSound('sfx-button');
+                PauseManager.pause(this);
+            }
+        });
+
+        // 设置层级
+        this.pauseButton.setDepth(100);
+    }
+
     onGameOver() {
+        // 隐藏暂停按钮
+        if (this.pauseButton) {
+            this.pauseButton.setVisible(false);
+        }
         // 使用 GameOverManager 显示游戏结束界面
         GameOverManager.show(this, this.score);
     }
