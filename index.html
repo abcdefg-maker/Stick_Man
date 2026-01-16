@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, minimal-ui">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="format-detection" content="telephone=no">
+    <title>棍兵 - Stick Samurai</title>
+    <link rel="apple-touch-icon" href="icon-256.png">
+    <link rel="icon" type="image/png" href="icon-32.png">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="game-container"></div>
+
+    <!-- Phaser 3 -->
+    <script src="https://cdn.jsdelivr.net/npm/phaser@3.70.0/dist/phaser.min.js"></script>
+
+    <!-- 配置文件 -->
+    <script src="js/config/AssetsConfig.js"></script>
+    <script src="js/config/LayoutConfig.js"></script>
+    <script src="js/config/GameplayConfig.js"></script>
+
+    <!-- 工具类 -->
+    <script src="js/utils/Constants.js"></script>
+    <script src="js/utils/StorageManager.js"></script>
+    <script src="js/utils/EventManager.js"></script>
+
+    <!-- 游戏对象 -->
+    <script src="js/objects/Platform.js"></script>
+    <script src="js/objects/Stick.js"></script>
+    <script src="js/objects/Soldier.js"></script>
+    <script src="js/objects/Snow.js"></script>
+
+    <!-- UI 组件 -->
+    <script src="js/ui/Button.js"></script>
+    <script src="js/ui/ScoreDisplay.js"></script>
+
+    <!-- 场景 -->
+    <script src="js/scenes/BootScene.js"></script>
+    <script src="js/scenes/PreloadScene.js"></script>
+    <script src="js/scenes/Advertise.js"></script>
+    <script src="js/scenes/MenuScene.js"></script>
+    <script src="js/scenes/GameScene.js"></script>
+
+    <!-- 游戏入口 -->
+    <script src="js/main.js"></script>
+</body>
+</html>

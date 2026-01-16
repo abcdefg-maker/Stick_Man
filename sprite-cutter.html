@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>精灵表切割工具</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: Arial, sans-serif;
+            background: #1a1a2e;
+            color: #fff;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #00d4ff;
+        }
+        .controls {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .control-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        label {
+            color: #a0a0a0;
+            min-width: 80px;
+        }
+        input[type="number"] {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #444;
+            border-radius: 5px;
+            background: #0f0f23;
+            color: #fff;
+            font-size: 14px;
+        }
+        input[type="file"] {
+            padding: 8px;
+            background: #0f0f23;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: #fff;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s;
+        }
+        .btn-primary {
+            background: #00d4ff;
+            color: #000;
+        }
+        .btn-primary:hover {
+            background: #00a8cc;
+        }
+        .btn-success {
+            background: #00ff88;
+            color: #000;
+        }
+        .btn-success:hover {
+            background: #00cc6a;
+        }
+        .canvas-container {
+            background: #0f0f23;
+            border-radius: 10px;
+            padding: 20px;
+            margin-bottom: 20px;
+            overflow: auto;
+        }
+        .canvas-wrapper {
+            position: relative;
+            display: inline-block;
+            background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 20px 20px;
+        }
+        #mainCanvas {
+            display: block;
+            cursor: crosshair;
+        }
+        .info-panel {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .info-row {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+        .info-item {
+            color: #a0a0a0;
+        }
+        .info-item span {
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        .frames-preview {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .frames-preview h3 {
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+        .frames-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        .frame-item {
+            background: repeating-conic-gradient(#333 0% 25%, #222 0% 50%) 50% / 10px 10px;
+            border: 2px solid #444;
+            border-radius: 5px;
+            padding: 5px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        .frame-item:hover {
+            border-color: #00d4ff;
+        }
+        .frame-item.selected {
+            border-color: #00ff88;
+            box-shadow: 0 0 10px rgba(0, 255, 136, 0.5);
+        }
+        .frame-item canvas {
+            display: block;
+            margin-bottom: 5px;
+        }
+        .frame-item span {
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+        .export-section {
+            background: #16213e;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .export-section h3 {
+            margin-bottom: 15px;
+            color: #00d4ff;
+        }
+        .config-output {
+            background: #0f0f23;
+            padding: 15px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 13px;
+            white-space: pre-wrap;
+            color: #00ff88;
+            max-height: 200px;
+            overflow: auto;
+        }
+        .zoom-controls {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .zoom-controls button {
+            width: 36px;
+            height: 36px;
+            padding: 0;
+            font-size: 18px;
+        }
+        #zoomLevel {
+            min-width: 60px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>精灵表切割工具</h1>
+
+        <div class="controls">
+            <div class="control-row">
+                <div class="control-group">
+                    <label>加载图片:</label>
+                    <input type="file" id="imageInput" accept="image/*">
+                </div>
+                <div class="control-group">
+                    <button class="btn-primary" onclick="loadDefaultImage()">加载士兵图片</button>
+                </div>
+            </div>
+            <div class="control-row">
+                <div class="control-group">
+                    <label>帧宽度:</label>
+                    <input type="number" id="frameWidth" value="80" min="1">
+                </div>
+                <div class="control-group">
+                    <label>帧高度:</label>
+                    <input type="number" id="frameHeight" value="108" min="1">
+                </div>
+                <div class="control-group">
+                    <label>列数:</label>
+                    <input type="number" id="cols" value="3" min="1">
+                </div>
+                <div class="control-group">
+                    <label>行数:</label>
+                    <input type="number" id="rows" value="2" min="1">
+                </div>
+                <button class="btn-primary" onclick="updateGrid()">更新网格</button>
+            </div>
+            <div class="control-row">
+                <div class="control-group">
+                    <label>X偏移:</label>
+                    <input type="number" id="offsetX" value="0">
+                </div>
+                <div class="control-group">
+                    <label>Y偏移:</label>
+                    <input type="number" id="offsetY" value="0">
+                </div>
+                <div class="control-group">
+                    <label>间距X:</label>
+                    <input type="number" id="spacingX" value="0" min="0">
+                </div>
+                <div class="control-group">
+                    <label>间距Y:</label>
+                    <input type="number" id="spacingY" value="0" min="0">
+                </div>
+            </div>
+            <div class="control-row">
+                <div class="zoom-controls">
+                    <label>缩放:</label>
+                    <button class="btn-primary" onclick="zoom(-1)">-</button>
+                    <span id="zoomLevel">100%</span>
+                    <button class="btn-primary" onclick="zoom(1)">+</button>
+                </div>
+                <div class="control-group">
+                    <input type="checkbox" id="showGrid" checked onchange="draw()">
+                    <label style="min-width:auto">显示网格</label>
+                </div>
+                <div class="control-group">
+                    <input type="checkbox" id="showNumbers" checked onchange="draw()">
+                    <label style="min-width:auto">显示帧号</label>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="info-row">
+                <div class="info-item">图片尺寸: <span id="imageSize">-</span></div>
+                <div class="info-item">总帧数: <span id="totalFrames">-</span></div>
+                <div class="info-item">鼠标位置: <span id="mousePos">-</span></div>
+                <div class="info-item">当前帧: <span id="currentFrame">-</span></div>
+            </div>
+        </div>
+
+        <div class="canvas-container">
+            <div class="canvas-wrapper">
+                <canvas id="mainCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="frames-preview">
+            <h3>帧预览 (点击选择)</h3>
+            <div class="frames-grid" id="framesGrid"></div>
+        </div>
+
+        <div class="export-section">
+            <h3>导出配置</h3>
+            <div class="control-row">
+                <button class="btn-success" onclick="exportConfig()">生成 Phaser 配置</button>
+                <button class="btn-primary" onclick="exportSelectedFrames()">导出选中帧</button>
+            </div>
+            <div class="config-output" id="configOutput">// 配置将显示在这里</div>
+        </div>
+    </div>
+
+    <script>
+        let image = null;
+        let scale = 1;
+        let selectedFrames = new Set();
+
+        const canvas = document.getElementById('mainCanvas');
+        const ctx = canvas.getContext('2d');
+
+        // 输入元素
+        const inputs = {
+            frameWidth: document.getElementById('frameWidth'),
+            frameHeight: document.getElementById('frameHeight'),
+            cols: document.getElementById('cols'),
+            rows: document.getElementById('rows'),
+            offsetX: document.getElementById('offsetX'),
+            offsetY: document.getElementById('offsetY'),
+            spacingX: document.getElementById('spacingX'),
+            spacingY: document.getElementById('spacingY'),
+            showGrid: document.getElementById('showGrid'),
+            showNumbers: document.getElementById('showNumbers')
+        };
+
+        // 加载默认图片
+        function loadDefaultImage() {
+            const img = new Image();
+            img.onload = function() {
+                image = img;
+                document.getElementById('imageSize').textContent = `${img.width} x ${img.height}`;
+                updateGrid();
+            };
+            img.src = 'assets/images/soldier-sheet0.png';
+        }
+
+        // 文件输入处理
+        document.getElementById('imageInput').addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    const img = new Image();
+                    img.onload = function() {
+                        image = img;
+                        document.getElementById('imageSize').textContent = `${img.width} x ${img.height}`;
+                        updateGrid();
+                    };
+                    img.src = event.target.result;
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        // 更新网格
+        function updateGrid() {
+            if (!image) return;
+            draw();
+            generateFramePreviews();
+        }
+
+        // 绘制主画布
+        function draw() {
+            if (!image) return;
+
+            const frameWidth = parseInt(inputs.frameWidth.value);
+            const frameHeight = parseInt(inputs.frameHeight.value);
+            const cols = parseInt(inputs.cols.value);
+            const rows = parseInt(inputs.rows.value);
+            const offsetX = parseInt(inputs.offsetX.value);
+            const offsetY = parseInt(inputs.offsetY.value);
+            const spacingX = parseInt(inputs.spacingX.value);
+            const spacingY = parseInt(inputs.spacingY.value);
+
+            canvas.width = image.width * scale;
+            canvas.height = image.height * scale;
+
+            ctx.imageSmoothingEnabled = false;
+            ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+            // 绘制网格
+            if (inputs.showGrid.checked) {
+                ctx.strokeStyle = '#00d4ff';
+                ctx.lineWidth = 1;
+
+                for (let row = 0; row < rows; row++) {
+                    for (let col = 0; col < cols; col++) {
+                        const x = (offsetX + col * (frameWidth + spacingX)) * scale;
+                        const y = (offsetY + row * (frameHeight + spacingY)) * scale;
+                        const w = frameWidth * scale;
+                        const h = frameHeight * scale;
+
+                        const frameIndex = row * cols + col;
+
+                        // 选中的帧用不同颜色
+                        if (selectedFrames.has(frameIndex)) {
+                            ctx.strokeStyle = '#00ff88';
+                            ctx.lineWidth = 3;
+                        } else {
+                            ctx.strokeStyle = '#00d4ff';
+                            ctx.lineWidth = 1;
+                        }
+
+                        ctx.strokeRect(x, y, w, h);
+
+                        // 绘制帧号
+                        if (inputs.showNumbers.checked) {
+                            ctx.fillStyle = selectedFrames.has(frameIndex) ? '#00ff88' : '#ff0000';
+                            ctx.font = `bold ${14 * scale}px Arial`;
+                            ctx.fillText(frameIndex.toString(), x + 5 * scale, y + 18 * scale);
+                        }
+                    }
+                }
+            }
+
+            // 更新总帧数
+            document.getElementById('totalFrames').textContent = cols * rows;
+        }
+
+        // 生成帧预览
+        function generateFramePreviews() {
+            if (!image) return;
+
+            const frameWidth = parseInt(inputs.frameWidth.value);
+            const frameHeight = parseInt(inputs.frameHeight.value);
+            const cols = parseInt(inputs.cols.value);
+            const rows = parseInt(inputs.rows.value);
+            const offsetX = parseInt(inputs.offsetX.value);
+            const offsetY = parseInt(inputs.offsetY.value);
+            const spacingX = parseInt(inputs.spacingX.value);
+            const spacingY = parseInt(inputs.spacingY.value);
+
+            const grid = document.getElementById('framesGrid');
+            grid.innerHTML = '';
+
+            for (let row = 0; row < rows; row++) {
+                for (let col = 0; col < cols; col++) {
+                    const frameIndex = row * cols + col;
+                    const x = offsetX + col * (frameWidth + spacingX);
+                    const y = offsetY + row * (frameHeight + spacingY);
+
+                    const frameCanvas = document.createElement('canvas');
+                    frameCanvas.width = frameWidth;
+                    frameCanvas.height = frameHeight;
+                    const frameCtx = frameCanvas.getContext('2d');
+                    frameCtx.drawImage(image, x, y, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+
+                    const div = document.createElement('div');
+                    div.className = 'frame-item' + (selectedFrames.has(frameIndex) ? ' selected' : '');
+                    div.onclick = () => toggleFrame(frameIndex, div);
+                    div.appendChild(frameCanvas);
+
+                    const span = document.createElement('span');
+                    span.textContent = `帧 ${frameIndex}`;
+                    div.appendChild(span);
+
+                    grid.appendChild(div);
+                }
+            }
+        }
+
+        // 切换帧选择
+        function toggleFrame(index, element) {
+            if (selectedFrames.has(index)) {
+                selectedFrames.delete(index);
+                element.classList.remove('selected');
+            } else {
+                selectedFrames.add(index);
+                element.classList.add('selected');
+            }
+            draw();
+        }
+
+        // 缩放
+        function zoom(delta) {
+            scale = Math.max(0.5, Math.min(4, scale + delta * 0.5));
+            document.getElementById('zoomLevel').textContent = Math.round(scale * 100) + '%';
+            draw();
+        }
+
+        // 鼠标移动处理
+        canvas.addEventListener('mousemove', function(e) {
+            if (!image) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / scale);
+            const y = Math.floor((e.clientY - rect.top) / scale);
+
+            document.getElementById('mousePos').textContent = `${x}, ${y}`;
+
+            // 计算当前帧
+            const frameWidth = parseInt(inputs.frameWidth.value);
+            const frameHeight = parseInt(inputs.frameHeight.value);
+            const cols = parseInt(inputs.cols.value);
+            const offsetX = parseInt(inputs.offsetX.value);
+            const offsetY = parseInt(inputs.offsetY.value);
+            const spacingX = parseInt(inputs.spacingX.value);
+            const spacingY = parseInt(inputs.spacingY.value);
+
+            const col = Math.floor((x - offsetX) / (frameWidth + spacingX));
+            const row = Math.floor((y - offsetY) / (frameHeight + spacingY));
+
+            if (col >= 0 && col < cols && row >= 0) {
+                const frameIndex = row * cols + col;
+                document.getElementById('currentFrame').textContent = frameIndex;
+            } else {
+                document.getElementById('currentFrame').textContent = '-';
+            }
+        });
+
+        // 点击选择帧
+        canvas.addEventListener('click', function(e) {
+            if (!image) return;
+
+            const rect = canvas.getBoundingClientRect();
+            const x = Math.floor((e.clientX - rect.left) / scale);
+            const y = Math.floor((e.clientY - rect.top) / scale);
+
+            const frameWidth = parseInt(inputs.frameWidth.value);
+            const frameHeight = parseInt(inputs.frameHeight.value);
+            const cols = parseInt(inputs.cols.value);
+            const rows = parseInt(inputs.rows.value);
+            const offsetX = parseInt(inputs.offsetX.value);
+            const offsetY = parseInt(inputs.offsetY.value);
+            const spacingX = parseInt(inputs.spacingX.value);
+            const spacingY = parseInt(inputs.spacingY.value);
+
+            const col = Math.floor((x - offsetX) / (frameWidth + spacingX));
+            const row = Math.floor((y - offsetY) / (frameHeight + spacingY));
+
+            if (col >= 0 && col < cols && row >= 0 && row < rows) {
+                const frameIndex = row * cols + col;
+                if (selectedFrames.has(frameIndex)) {
+                    selectedFrames.delete(frameIndex);
+                } else {
+                    selectedFrames.add(frameIndex);
+                }
+                draw();
+                generateFramePreviews();
+            }
+        });
+
+        // 导出配置
+        function exportConfig() {
+            const frameWidth = parseInt(inputs.frameWidth.value);
+            const frameHeight = parseInt(inputs.frameHeight.value);
+            const cols = parseInt(inputs.cols.value);
+            const rows = parseInt(inputs.rows.value);
+            const offsetX = parseInt(inputs.offsetX.value);
+            const offsetY = parseInt(inputs.offsetY.value);
+            const spacingX = parseInt(inputs.spacingX.value);
+            const spacingY = parseInt(inputs.spacingY.value);
+
+            const config = `// Phaser 3 精灵表配置
+SOLDIER: {
+    key: 'soldier',
+    file: 'soldier-sheet0.png',
+    isSprite: true,
+    frameConfig: {
+        frameWidth: ${frameWidth},
+        frameHeight: ${frameHeight},
+        startFrame: 0,
+        endFrame: ${cols * rows - 1},
+        margin: ${offsetX},
+        spacing: ${spacingX}
+    }
+}
+
+// 动画配置
+SOLDIER_IDLE: {
+    key: 'soldier-idle',
+    spriteKey: 'soldier',
+    frames: { start: 0, end: ${selectedFrames.size > 0 ? Math.max(...selectedFrames) : cols * rows - 1} },
+    frameRate: 10,
+    repeat: -1
+}
+
+// 选中的帧: [${[...selectedFrames].sort((a,b) => a-b).join(', ')}]
+
+// 图片信息
+// 原始尺寸: ${image ? image.width + ' x ' + image.height : '-'}
+// 帧尺寸: ${frameWidth} x ${frameHeight}
+// 布局: ${cols}列 x ${rows}行
+// 偏移: (${offsetX}, ${offsetY})
+// 间距: (${spacingX}, ${spacingY})`;
+
+            document.getElementById('configOutput').textContent = config;
+        }
+
+        // 导出选中的帧
+        function exportSelectedFrames() {
+            if (!image || selectedFrames.size === 0) {
+                alert('请先选择要导出的帧');
+                return;
+            }
+
+            const frameWidth = parseInt(inputs.frameWidth.value);
+            const frameHeight = parseInt(inputs.frameHeight.value);
+            const cols = parseInt(inputs.cols.value);
+            const offsetX = parseInt(inputs.offsetX.value);
+            const offsetY = parseInt(inputs.offsetY.value);
+            const spacingX = parseInt(inputs.spacingX.value);
+            const spacingY = parseInt(inputs.spacingY.value);
+
+            const sortedFrames = [...selectedFrames].sort((a, b) => a - b);
+
+            sortedFrames.forEach((frameIndex, i) => {
+                const col = frameIndex % cols;
+                const row = Math.floor(frameIndex / cols);
+                const x = offsetX + col * (frameWidth + spacingX);
+                const y = offsetY + row * (frameHeight + spacingY);
+
+                const exportCanvas = document.createElement('canvas');
+                exportCanvas.width = frameWidth;
+                exportCanvas.height = frameHeight;
+                const exportCtx = exportCanvas.getContext('2d');
+                exportCtx.drawImage(image, x, y, frameWidth, frameHeight, 0, 0, frameWidth, frameHeight);
+
+                const link = document.createElement('a');
+                link.download = `frame_${frameIndex}.png`;
+                link.href = exportCanvas.toDataURL('image/png');
+                link.click();
+            });
+        }
+
+        // 监听输入变化
+        Object.values(inputs).forEach(input => {
+            if (input.type === 'number') {
+                input.addEventListener('change', updateGrid);
+            }
+        });
+
+        // 页面加载完成后加载默认图片
+        window.onload = loadDefaultImage;
+    </script>
+</body>
+</html>
