@@ -1,6 +1,6 @@
 /**
  * 游戏结束管理模块
- * 负责显示游戏结束界面、处理高分记录和场景跳转
+ * 负责显示游戏结束界面和场景跳转
  *
  * 【使用说明】
  * 在 GameScene 中调用 GameOverManager.show(scene, score) 显示游戏结束界面
@@ -16,61 +16,32 @@ const GameOverManager = {
 
     // UI 元素
     overlay: null,
-    gameOverTextContainer: null,
-    finalScoreContainer: null,
-    newHighScoreText: null,
-    buttons: [],
+    gameOverImage: null,
+    menuButton: null,
 
     // 状态
     isShown: false,
 
     // 配置
     config: {
-        // GAME OVER 文字配置
-        gameOverY: 350,
-        gameOverCharWidth: 100,
-        gameOverCharHeight: 100,
-        gameOverCharSpacing: -20,
-        // SCORE 文字配置
-        scoreY: 480,
-        scoreCharWidth: 70,
-        scoreCharHeight: 70,
-        scoreCharSpacing: -20,
-        // UI 层级
-        depth: 200,
-        // 按钮配置
-        buttons: {
-            y: 650,              // 按钮 Y 位置
-            spacing: 140,       // 按钮间距
-            scale: 0.9,         // 按钮正常大小
+        // GAME OVER 图片配置
+        gameOverImage: {
+            y: 400,
+            scale: 1.0
+        },
+        // 返回主菜单按钮配置
+        menuButton: {
+            y: 650,
+            scale: 1.0,
             // 弹出动画配置
             animation: {
-                delay: 150,         // 每个按钮之间的延迟
-                duration: 400,      // 动画持续时间
-                overshoot: 1.2,     // 放大超过的比例
-                ease: 'Back.easeOut' // 缓动函数
+                delay: 150,
+                duration: 400,
+                overshoot: 1.2
             }
-        }
+        },
+        depth: 200
     },
-
-    // 按钮定义（可扩展）
-    buttonDefinitions: [
-        {
-            key: 'btn-play',
-            action: 'restart',
-            name: '重玩'
-        },
-        {
-            key: 'btn-info',
-            action: 'menu',
-            name: '主菜单'
-        },
-        {
-            key: 'btn-more-games',
-            action: 'moreGames',
-            name: '更多游戏'
-        }
-    ],
 
     /**
      * 显示游戏结束界面
@@ -95,7 +66,7 @@ const GameOverManager = {
         EventManager.emit(GameEvents.GAME_OVER, { score: score, isNewHighScore });
 
         // 显示 UI
-        this.createUI(score, isNewHighScore);
+        this.createUI();
 
         // 创建按钮（带动画）
         this.createButtons();
@@ -108,10 +79,8 @@ const GameOverManager = {
 
     /**
      * 创建游戏结束 UI
-     * @param {number} score - 最终得分
-     * @param {boolean} isNewHighScore - 是否为新高分
      */
-    createUI(score, isNewHighScore) {
+    createUI() {
         const canvas = LayoutConfig.CANVAS;
         const gameOverLayout = LayoutConfig.GAME_OVER;
 
@@ -126,143 +95,171 @@ const GameOverManager = {
         );
         this.overlay.setDepth(this.config.depth);
 
-        // 使用图片字体创建 GAME OVER 文字
-        this.createImageText(
-            'GAME OVER',
-            canvas.WIDTH / 2,
-            this.config.gameOverY,
-            this.config.gameOverCharWidth,
-            this.config.gameOverCharHeight,
-            this.config.gameOverCharSpacing,
-            'gameOverTextContainer'
-        );
-
-        // 使用图片字体创建 SCORE: xxx 文字
-        this.createImageText(
-            `SCORE:${score}`,
-            canvas.WIDTH / 2,
-            this.config.scoreY,
-            this.config.scoreCharWidth,
-            this.config.scoreCharHeight,
-            this.config.scoreCharSpacing,
-            'finalScoreContainer'
-        );
-
-        // 新高分提示
-        if (isNewHighScore) {
-            const newRecordConfig = gameOverLayout.NEW_RECORD;
-            this.newHighScoreText = this.currentScene.add.text(
-                newRecordConfig.x,
-                newRecordConfig.y,
-                newRecordConfig.text,
-                {
-                    fontSize: `${newRecordConfig.fontSize}px`,
-                    fill: newRecordConfig.fontColor,
-                    fontFamily: 'Arial',
-                    stroke: newRecordConfig.strokeColor,
-                    strokeThickness: newRecordConfig.strokeThickness
-                }
-            ).setOrigin(0.5);
-            this.newHighScoreText.setDepth(this.config.depth + 1);
-
-            // 闪烁动画
-            if (newRecordConfig.animation.type === 'blink') {
-                this.currentScene.tweens.add({
-                    targets: this.newHighScoreText,
-                    alpha: 0.5,
-                    duration: newRecordConfig.animation.duration,
-                    yoyo: true,
-                    repeat: -1
-                });
-            }
-        }
+        // 显示 GAME OVER 大图（占位符或实际图片）
+        this.createGameOverImage();
     },
 
     /**
-     * 创建按钮（带依次弹出动画）
+     * 创建 GAME OVER 图片
+     * 如果图片不存在，则动态生成占位符
+     */
+    createGameOverImage() {
+        const canvas = LayoutConfig.CANVAS;
+        const imgConfig = this.config.gameOverImage;
+
+        // 检查是否已加载实际图片
+        if (this.currentScene.textures.exists('game-over-image')) {
+            this.gameOverImage = this.currentScene.add.image(
+                canvas.WIDTH / 2,
+                imgConfig.y,
+                'game-over-image'
+            );
+        } else {
+            // 动态生成占位符
+            this.createPlaceholderGameOverImage();
+            this.gameOverImage = this.currentScene.add.image(
+                canvas.WIDTH / 2,
+                imgConfig.y,
+                'game-over-placeholder'
+            );
+        }
+
+        this.gameOverImage.setScale(imgConfig.scale);
+        this.gameOverImage.setDepth(this.config.depth + 1);
+    },
+
+    /**
+     * 创建 GAME OVER 占位符图片
+     */
+    createPlaceholderGameOverImage() {
+        if (this.currentScene.textures.exists('game-over-placeholder')) {
+            return;
+        }
+
+        const width = 500;
+        const height = 150;
+
+        const graphics = this.currentScene.make.graphics({ x: 0, y: 0, add: false });
+
+        // 绘制背景
+        graphics.fillStyle(0x333333, 1);
+        graphics.fillRoundedRect(0, 0, width, height, 20);
+
+        // 绘制边框
+        graphics.lineStyle(4, 0xFFFF00, 1);
+        graphics.strokeRoundedRect(2, 2, width - 4, height - 4, 18);
+
+        // 生成纹理
+        graphics.generateTexture('game-over-placeholder', width, height);
+        graphics.destroy();
+
+        // 添加文字（使用单独的文本对象会更清晰）
+        // 由于占位符是临时的，这里简单处理
+    },
+
+    /**
+     * 创建返回主菜单按钮
      */
     createButtons() {
         const canvas = LayoutConfig.CANVAS;
-        const btnConfig = this.config.buttons;
-        const definitions = this.buttonDefinitions;
-        const totalButtons = definitions.length;
+        const btnConfig = this.config.menuButton;
 
-        // 计算按钮起始 X 位置（居中排列）
-        const totalWidth = (totalButtons - 1) * btnConfig.spacing;
-        const startX = canvas.WIDTH / 2 - totalWidth / 2;
+        // 检查是否已加载实际图片
+        if (this.currentScene.textures.exists('menu-button')) {
+            this.menuButton = this.currentScene.add.image(
+                canvas.WIDTH / 2,
+                btnConfig.y,
+                'menu-button'
+            );
+        } else {
+            // 动态生成占位符
+            this.createPlaceholderMenuButton();
+            this.menuButton = this.currentScene.add.image(
+                canvas.WIDTH / 2,
+                btnConfig.y,
+                'menu-button-placeholder'
+            );
+        }
 
-        // 清空之前的按钮
-        this.buttons = [];
+        this.menuButton.setScale(0); // 初始缩放为 0，用于动画
+        this.menuButton.setDepth(this.config.depth + 2);
+        this.menuButton.setInteractive({ useHandCursor: true });
 
-        // 圆形按钮半径
-        const buttonRadius = 50;
-
-        // 依次创建每个按钮
-        definitions.forEach((def, index) => {
-            const x = startX + index * btnConfig.spacing;
-            const y = btnConfig.y;
-
-            // 创建纯黄色圆形按钮（初始缩放为 0）
-            const button = this.currentScene.add.circle(x, y, buttonRadius, 0xFFFF00);
-            button.setScale(0);
-            button.setDepth(this.config.depth + 2);
-            button.setInteractive({ useHandCursor: true });
-
-            // 存储按钮引用
-            this.buttons.push(button);
-
-            // 绑定点击事件
-            button.on('pointerdown', () => {
-                this.onButtonClick(def.action);
-            });
-
-            // 添加悬停效果
-            button.on('pointerover', () => {
-                this.currentScene.tweens.add({
-                    targets: button,
-                    scale: btnConfig.scale * 1.1,
-                    duration: 100,
-                    ease: 'Sine.easeOut'
-                });
-            });
-
-            button.on('pointerout', () => {
-                this.currentScene.tweens.add({
-                    targets: button,
-                    scale: btnConfig.scale,
-                    duration: 100,
-                    ease: 'Sine.easeOut'
-                });
-            });
-
-            // 延迟执行弹出动画
-            const delay = index * btnConfig.animation.delay;
-            this.animateButtonIn(button, delay, btnConfig);
+        // 绑定点击事件
+        this.menuButton.on('pointerdown', () => {
+            this.onMenuButtonClick();
         });
+
+        // 添加悬停效果
+        this.menuButton.on('pointerover', () => {
+            this.currentScene.tweens.add({
+                targets: this.menuButton,
+                scale: btnConfig.scale * 1.1,
+                duration: 100,
+                ease: 'Sine.easeOut'
+            });
+        });
+
+        this.menuButton.on('pointerout', () => {
+            this.currentScene.tweens.add({
+                targets: this.menuButton,
+                scale: btnConfig.scale,
+                duration: 100,
+                ease: 'Sine.easeOut'
+            });
+        });
+
+        // 执行弹出动画
+        this.animateButtonIn();
+    },
+
+    /**
+     * 创建返回主菜单按钮占位符
+     */
+    createPlaceholderMenuButton() {
+        if (this.currentScene.textures.exists('menu-button-placeholder')) {
+            return;
+        }
+
+        const width = 200;
+        const height = 60;
+
+        const graphics = this.currentScene.make.graphics({ x: 0, y: 0, add: false });
+
+        // 绘制按钮背景
+        graphics.fillStyle(0xFFFF00, 1);
+        graphics.fillRoundedRect(0, 0, width, height, 10);
+
+        // 绘制边框
+        graphics.lineStyle(3, 0x000000, 1);
+        graphics.strokeRoundedRect(1, 1, width - 2, height - 2, 9);
+
+        // 生成纹理
+        graphics.generateTexture('menu-button-placeholder', width, height);
+        graphics.destroy();
     },
 
     /**
      * 按钮弹出动画
-     * @param {Phaser.GameObjects.Image} button - 按钮对象
-     * @param {number} delay - 延迟时间
-     * @param {Object} btnConfig - 按钮配置
      */
-    animateButtonIn(button, delay, btnConfig) {
+    animateButtonIn() {
+        const btnConfig = this.config.menuButton;
         const anim = btnConfig.animation;
         const targetScale = btnConfig.scale;
         const overshootScale = targetScale * anim.overshoot;
 
-        // 第一阶段：从 0 放大到超过目标大小
-        this.currentScene.time.delayedCall(delay, () => {
+        // 延迟后执行动画
+        this.currentScene.time.delayedCall(anim.delay, () => {
+            // 第一阶段：从 0 放大到超过目标大小
             this.currentScene.tweens.add({
-                targets: button,
+                targets: this.menuButton,
                 scale: overshootScale,
                 duration: anim.duration * 0.6,
                 ease: 'Cubic.easeOut',
                 onComplete: () => {
                     // 第二阶段：缩小到正常大小（弹簧效果）
                     this.currentScene.tweens.add({
-                        targets: button,
+                        targets: this.menuButton,
                         scale: targetScale,
                         duration: anim.duration * 0.4,
                         ease: 'Sine.easeInOut'
@@ -273,10 +270,9 @@ const GameOverManager = {
     },
 
     /**
-     * 按钮点击处理
-     * @param {string} action - 动作类型
+     * 返回主菜单按钮点击处理
      */
-    onButtonClick(action) {
+    onMenuButtonClick() {
         // 播放按钮音效
         if (GameData.soundEnabled && this.currentScene) {
             this.currentScene.sound.play('sfx-button', { volume: GameplayConfig.AUDIO.SFX_VOLUME });
@@ -284,117 +280,9 @@ const GameOverManager = {
 
         const sceneRef = this.currentScene;
 
-        switch (action) {
-            case 'restart':
-                // 重新开始游戏
-                this.hide();
-                sceneRef.scene.restart();
-                break;
-
-            case 'menu':
-                // 返回主菜单
-                this.hide();
-                sceneRef.scene.start('MenuScene');
-                break;
-
-            case 'moreGames':
-                // 更多游戏（可扩展：跳转到其他页面或显示列表）
-                console.log('More games clicked');
-                // 暂时跳转到主菜单
-                this.hide();
-                sceneRef.scene.start('MenuScene');
-                break;
-
-            default:
-                console.log('Unknown action:', action);
-        }
-    },
-
-    /**
-     * 使用图片字体创建文字
-     * @param {string} text - 要显示的文字
-     * @param {number} x - 中心 X 坐标
-     * @param {number} y - 中心 Y 坐标
-     * @param {number} charWidth - 字符宽度
-     * @param {number} charHeight - 字符高度
-     * @param {number} charSpacing - 字符间距
-     * @param {string} containerName - 容器属性名
-     */
-    createImageText(text, x, y, charWidth, charHeight, charSpacing, containerName) {
-        // 创建容器
-        this[containerName] = this.currentScene.add.container(x, y);
-        this[containerName].setDepth(this.config.depth + 1);
-
-        // 计算总宽度
-        let totalWidth = 0;
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-            if (char === ' ') {
-                totalWidth += charWidth * 0.5;
-            } else {
-                totalWidth += charWidth + charSpacing;
-            }
-        }
-        totalWidth -= charSpacing;
-
-        // 起始 X 位置（居中）
-        let currentX = -totalWidth / 2;
-
-        // 为每个字符创建精灵
-        for (let i = 0; i < text.length; i++) {
-            const char = text[i];
-
-            if (char === ' ') {
-                currentX += charWidth * 0.5;
-                continue;
-            }
-
-            const frameIndex = this.getHighScoreFontFrame(char);
-            if (frameIndex !== -1) {
-                const charSprite = this.currentScene.add.image(
-                    currentX + charWidth / 2,
-                    0,
-                    'high-score-font',
-                    frameIndex
-                );
-                charSprite.setDisplaySize(charWidth, charHeight);
-                this[containerName].add(charSprite);
-            }
-
-            currentX += charWidth + charSpacing;
-        }
-    },
-
-    /**
-     * 获取字符对应的帧索引
-     * @param {string} char - 单个字符
-     * @returns {number} 帧索引
-     */
-    getHighScoreFontFrame(char) {
-        const code = char.charCodeAt(0);
-
-        // A-Z: 帧 0-25
-        if (code >= 65 && code <= 90) {
-            return code - 65;
-        }
-        // a-z: 帧 26-51
-        if (code >= 97 && code <= 122) {
-            return code - 97 + 26;
-        }
-        // 0-9: 帧 52-61
-        if (code >= 48 && code <= 57) {
-            return code - 48 + 52;
-        }
-        // ':' 帧 62
-        if (char === ':') {
-            return 62;
-        }
-        // '%' 帧 63
-        if (char === '%') {
-            return 63;
-        }
-
-        return -1;
+        // 返回主菜单
+        this.hide();
+        sceneRef.scene.start('MenuScene');
     },
 
     /**
@@ -405,25 +293,14 @@ const GameOverManager = {
             this.overlay.destroy();
             this.overlay = null;
         }
-        if (this.gameOverTextContainer) {
-            this.gameOverTextContainer.destroy();
-            this.gameOverTextContainer = null;
+        if (this.gameOverImage) {
+            this.gameOverImage.destroy();
+            this.gameOverImage = null;
         }
-        if (this.finalScoreContainer) {
-            this.finalScoreContainer.destroy();
-            this.finalScoreContainer = null;
+        if (this.menuButton) {
+            this.menuButton.destroy();
+            this.menuButton = null;
         }
-        if (this.newHighScoreText) {
-            this.newHighScoreText.destroy();
-            this.newHighScoreText = null;
-        }
-        // 清理按钮
-        this.buttons.forEach(btn => {
-            if (btn) {
-                btn.destroy();
-            }
-        });
-        this.buttons = [];
 
         this.isShown = false;
         this.currentScene = null;

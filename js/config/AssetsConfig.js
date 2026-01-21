@@ -173,6 +173,18 @@ const AssetsConfig = {
             key: 'ad-placeholder',
             file: '../occupation.png',
             description: '广告占位图'
+        },
+
+        // ========== 游戏结束界面 ==========
+        GAME_OVER_IMAGE: {
+            key: 'game-over-image',
+            file: 'gameover.png',
+            description: '游戏结束大图'
+        },
+        MENU_BUTTON: {
+            key: 'menu-button',
+            file: 'menubutton.png',
+            description: '返回主菜单按钮'
         }
     },
 
