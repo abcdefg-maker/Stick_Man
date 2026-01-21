@@ -111,6 +111,14 @@ class PreloadScene extends Phaser.Scene {
         // 创建士兵动画
         this.createAnimations();
 
+        // 设置广告数据
+        AdvertiseManager.setAdData({
+            gameName: "Wuthering Waves",
+            iconUrl: "https://llm-api.synsight.ai/aiad/a0airvana/art/icons/adgames/WutheringWaves.png",
+            gameAdUrl: "https://mc.kurogames.com/main#main",
+            score: 30
+        });
+
         // 启动广告计时器（全局计时，不受场景切换影响）
         AdvertiseManager.start();
 

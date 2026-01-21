@@ -5,7 +5,7 @@
  * 【设计理念】
  * - 全局计时：从调用 start() 开始计时，不受场景切换影响
  * - 状态持久：广告显示状态在场景切换时保持不变
- * - 展开/折叠：支持两种显示状态，自动定时切换
+ * - 展开/折叠：支持两种显示状态，用户手动切换
  * - 可扩展：支持多种广告类型和位置配置
  *
  * 【广告状态】
@@ -21,6 +21,7 @@
  * - show(): 显示广告
  * - hide(): 完全隐藏广告
  * - setConfig(config): 修改配置
+ * - setAdData(data): 设置广告数据（gameName, iconUrl, gameAdUrl, score）
  */
 
 const AdvertiseManager = {
@@ -28,8 +29,22 @@ const AdvertiseManager = {
     // 广告容器
     adContainer: null,
 
-    // 广告图片对象
-    adImage: null,
+    // 广告背景
+    adBackground: null,
+
+    // 圆形头像
+    adIcon: null,
+    adIconMask: null,
+
+    // 游戏名称文本
+    gameNameText: null,
+
+    // 积分文本
+    scoreText: null,
+
+    // GO 按钮
+    goButton: null,
+    goButtonText: null,
 
     // 左侧切换条（用于点击展开/折叠）
     toggleBar: null,
@@ -55,33 +70,58 @@ const AdvertiseManager = {
     // 检查定时器 ID（用于首次显示）
     checkTimerId: null,
 
-    // 自动切换定时器 ID
-    toggleTimerId: null,
+
+    // 图标是否已加载
+    iconLoaded: false,
+
+    // ==================== 广告数据 ====================
+    adData: {
+        gameName: 'Game Name',
+        iconUrl: '',
+        gameAdUrl: 'https://example.com/ad',
+        score: 0
+    },
 
     // ==================== 配置 ====================
     config: {
         // 广告首次显示延迟（毫秒）
         showDelay: 3000,
-        // 自动切换间隔（毫秒）
-        toggleInterval: 10000,
         // 展开动画时长（毫秒）
         expandDuration: 400,
         // 折叠动画时长（毫秒）
         collapseDuration: 300,
         // 滑入动画时长（毫秒）
         slideInDuration: 500,
-        // 广告图片 key
-        imageKey: 'ad-placeholder',
         // 广告宽度（像素）
         adWidth: 720,
+        // 广告高度（像素）
+        adHeight: 100,
         // 广告层级（确保在最上层）
         depth: 1000,
         // 检查间隔（毫秒）
         checkInterval: 100,
-        // 广告点击跳转链接
-        adLink: 'https://example.com/ad',
         // 折叠后露出的宽度（像素，广告左侧露出的部分）
-        toggleBarWidth: 40
+        toggleBarWidth: 40,
+        // 头像大小（像素）
+        iconSize: 70,
+        // 头像左边距
+        iconMarginLeft: 50,
+        // 文本左边距（相对于头像右边）
+        textMarginLeft: 15,
+        // GO按钮宽度
+        goButtonWidth: 70,
+        // GO按钮高度
+        goButtonHeight: 45,
+        // GO按钮右边距
+        goButtonMarginRight: 20,
+        // 背景颜色
+        backgroundColor: 0xf5f5f5,
+        // GO按钮颜色
+        goButtonColor: 0xf5a623,
+        // 游戏名称文字颜色
+        gameNameColor: '#333333',
+        // 积分文字颜色
+        scoreTextColor: '#f5a623'
     },
 
     // ==================== 核心方法 ====================
@@ -143,36 +183,6 @@ const AdvertiseManager = {
         }
     },
 
-    /**
-     * 启动自动切换定时器
-     */
-    startToggleTimer() {
-        if (this.toggleTimerId) {
-            return;
-        }
-
-        this.toggleTimerId = setInterval(() => {
-            this.toggle();
-        }, this.config.toggleInterval);
-    },
-
-    /**
-     * 停止自动切换定时器
-     */
-    stopToggleTimer() {
-        if (this.toggleTimerId) {
-            clearInterval(this.toggleTimerId);
-            this.toggleTimerId = null;
-        }
-    },
-
-    /**
-     * 重置自动切换定时器（用于手动操作后重新计时）
-     */
-    resetToggleTimer() {
-        this.stopToggleTimer();
-        this.startToggleTimer();
-    },
 
     /**
      * 场景切换时调用
@@ -194,6 +204,104 @@ const AdvertiseManager = {
     // ==================== 广告创建 ====================
 
     /**
+     * 设置广告数据
+     * @param {Object} data - 广告数据 { gameName, iconUrl, gameAdUrl, score }
+     */
+    setAdData(data) {
+        if (data.gameName !== undefined) this.adData.gameName = data.gameName;
+        if (data.iconUrl !== undefined) this.adData.iconUrl = data.iconUrl;
+        if (data.gameAdUrl !== undefined) this.adData.gameAdUrl = data.gameAdUrl;
+        if (data.score !== undefined) this.adData.score = data.score;
+
+        // 如果广告已显示，更新显示内容
+        if (this.isShown && this.currentScene) {
+            this.updateAdContent();
+        }
+    },
+
+    /**
+     * 更新广告内容（文本和图标）
+     */
+    updateAdContent() {
+        if (this.gameNameText) {
+            this.gameNameText.setText(this.adData.gameName);
+        }
+        if (this.scoreText) {
+            this.scoreText.setText('Download to earn\n' + this.adData.score + ' points');
+        }
+        // 如果图标URL变化，重新加载
+        if (this.adData.iconUrl && !this.iconLoaded) {
+            this.loadIcon();
+        }
+    },
+
+    /**
+     * 加载图标
+     */
+    loadIcon() {
+        if (!this.currentScene || !this.adData.iconUrl) {
+            return;
+        }
+
+        const iconKey = 'ad-icon-' + Date.now();
+
+        // 检查是否已经加载过
+        if (this.currentScene.textures.exists(iconKey)) {
+            this.createIconSprite(iconKey);
+            return;
+        }
+
+        // 动态加载图标
+        this.currentScene.load.image(iconKey, this.adData.iconUrl);
+        this.currentScene.load.once('complete', () => {
+            this.iconLoaded = true;
+            this.createIconSprite(iconKey);
+        });
+        this.currentScene.load.start();
+    },
+
+    /**
+     * 创建图标精灵（圆形）
+     */
+    createIconSprite(iconKey) {
+        if (!this.currentScene || !this.adContainer) {
+            return;
+        }
+
+        // 如果已存在图标，先销毁
+        if (this.adIcon) {
+            this.adIcon.destroy();
+            this.adIcon = null;
+        }
+        if (this.adIconMask) {
+            this.adIconMask.destroy();
+            this.adIconMask = null;
+        }
+
+        const config = this.config;
+        const iconSize = config.iconSize;
+
+        // 创建图标
+        this.adIcon = this.currentScene.add.image(0, 0, iconKey);
+
+        // 缩放图标到指定大小
+        const scale = iconSize / Math.max(this.adIcon.width, this.adIcon.height);
+        this.adIcon.setScale(scale);
+        this.adIcon.setDepth(config.depth + 2);
+
+        // 创建圆形遮罩
+        const maskGraphics = this.currentScene.make.graphics();
+        maskGraphics.fillStyle(0xffffff);
+        maskGraphics.fillCircle(0, 0, iconSize / 2);
+
+        this.adIconMask = maskGraphics.createGeometryMask();
+        this.adIcon.setMask(this.adIconMask);
+
+        // 更新位置
+        this.updatePositions();
+    },
+
+    /**
      * 创建完整的广告组件
      */
     createAd() {
@@ -202,20 +310,65 @@ const AdvertiseManager = {
         }
 
         const canvas = LayoutConfig.CANVAS;
+        const config = this.config;
 
-        // 创建广告图片
-        this.adImage = this.currentScene.add.image(0, 0, this.config.imageKey);
-        this.adImage.setOrigin(0, 0);  // 左上角为原点，方便计算位置
+        // 创建广告背景
+        this.adBackground = this.currentScene.add.graphics();
+        this.adBackground.fillStyle(config.backgroundColor, 1);
+        this.adBackground.fillRoundedRect(0, 0, config.adWidth, config.adHeight, 8);
+        this.adBackground.setDepth(config.depth);
 
-        // 设置广告宽度，保持宽高比
-        const adWidth = this.config.adWidth;
-        const scale = adWidth / this.adImage.width;
-        this.adImage.setScale(scale);
-        this.adImage.setDepth(this.config.depth);
+        // 创建游戏名称文本
+        this.gameNameText = this.currentScene.add.text(0, 0, this.adData.gameName, {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '30px',
+            fontStyle: 'bold',
+            color: config.gameNameColor
+        });
+        this.gameNameText.setDepth(config.depth + 2);
 
-        // 广告图片点击事件（跳转链接，只在展开状态下有效）
-        this.adImage.setInteractive({ useHandCursor: true });
-        this.adImage.on('pointerdown', (pointer) => {
+        // 创建积分文本
+        this.scoreText = this.currentScene.add.text(0, 0, 'Download to earn ' + this.adData.score + ' points', {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '24px',
+            color: config.scoreTextColor,
+            lineSpacing: 3
+        });
+        this.scoreText.setDepth(config.depth + 2);
+
+        // 创建 GO 按钮背景
+        this.goButton = this.currentScene.add.graphics();
+        this.goButton.fillStyle(config.goButtonColor, 1);
+        this.goButton.fillRoundedRect(0, 0, config.goButtonWidth, config.goButtonHeight, 6);
+        this.goButton.setDepth(config.depth + 2);
+
+        // 创建 GO 按钮文字
+        this.goButtonText = this.currentScene.add.text(0, 0, 'GO', {
+            fontFamily: 'Arial, sans-serif',
+            fontSize: '22px',
+            fontStyle: 'bold',
+            color: '#ffffff'
+        });
+        this.goButtonText.setOrigin(0.5, 0.5);
+        this.goButtonText.setDepth(config.depth + 3);
+
+        // 设置 GO 按钮交互
+        this.goButton.setInteractive(
+            new Phaser.Geom.Rectangle(0, 0, config.goButtonWidth, config.goButtonHeight),
+            Phaser.Geom.Rectangle.Contains
+        );
+        this.goButton.on('pointerdown', () => {
+            if (this.isExpanded) {
+                this.onAdClick();
+            }
+        });
+
+        // 背景也可点击跳转
+        this.adBackground.setInteractive(
+            new Phaser.Geom.Rectangle(0, 0, config.adWidth, config.adHeight),
+            Phaser.Geom.Rectangle.Contains
+        );
+        this.adBackground.on('pointerdown', () => {
             if (this.isExpanded) {
                 this.onAdClick();
             }
@@ -226,9 +379,14 @@ const AdvertiseManager = {
 
         // 创建容器来管理位置
         this.adContainer = {
-            x: canvas.WIDTH - this.adImage.displayWidth,  // 展开时左边缘位置
-            y: canvas.HEIGHT - this.adImage.displayHeight
+            x: canvas.WIDTH - config.adWidth,  // 展开时左边缘位置
+            y: canvas.HEIGHT - config.adHeight
         };
+
+        // 加载图标
+        if (this.adData.iconUrl) {
+            this.loadIcon();
+        }
 
         // 更新所有元素位置
         this.updatePositions();
@@ -239,12 +397,12 @@ const AdvertiseManager = {
      */
     createToggleBar() {
         const barWidth = this.config.toggleBarWidth;
-        const barHeight = this.adImage.displayHeight;
+        const barHeight = this.config.adHeight;
 
         // 创建切换条背景
         this.toggleBar = this.currentScene.add.graphics();
-        this.toggleBar.fillStyle(0x000000, 0.3);
-        this.toggleBar.fillRect(0, 0, barWidth, barHeight);
+        this.toggleBar.fillStyle(0xcccccc, 0.8);
+        this.toggleBar.fillRoundedRect(0, 0, barWidth, barHeight, { tl: 8, bl: 8, tr: 0, br: 0 });
 
         // 绘制箭头指示（展开时向右，折叠时向左）
         this.updateToggleBarArrow();
@@ -257,7 +415,6 @@ const AdvertiseManager = {
 
         this.toggleBar.on('pointerdown', () => {
             this.toggle();
-            this.resetToggleTimer();
         });
 
         // 设置层级（比广告图片高）
@@ -274,15 +431,15 @@ const AdvertiseManager = {
         this.toggleBar.clear();
 
         const barWidth = this.config.toggleBarWidth;
-        const barHeight = this.adImage ? this.adImage.displayHeight : 100;
+        const barHeight = this.config.adHeight;
 
         // 绘制背景
-        this.toggleBar.fillStyle(0x000000, 0.3);
-        this.toggleBar.fillRect(0, 0, barWidth, barHeight);
+        this.toggleBar.fillStyle(0xcccccc, 0.8);
+        this.toggleBar.fillRoundedRect(0, 0, barWidth, barHeight, { tl: 8, bl: 8, tr: 0, br: 0 });
 
         // 绘制箭头
-        this.toggleBar.lineStyle(3, 0xffffff, 0.8);
-        const arrowSize = 12;
+        this.toggleBar.lineStyle(3, 0x666666, 0.9);
+        const arrowSize = 10;
         const centerY = barHeight / 2;
         const centerX = barWidth / 2;
 
@@ -305,16 +462,61 @@ const AdvertiseManager = {
      * 更新所有元素的位置
      */
     updatePositions() {
-        if (!this.adImage || !this.adContainer) {
+        if (!this.adContainer) {
             return;
         }
 
-        // 广告图片位置
-        this.adImage.setPosition(this.adContainer.x, this.adContainer.y);
+        const config = this.config;
+        const baseX = this.adContainer.x;
+        const baseY = this.adContainer.y;
 
-        // 切换条位置（广告图片左侧）
+        // 广告背景位置
+        if (this.adBackground) {
+            this.adBackground.setPosition(baseX, baseY);
+        }
+
+        // 切换条位置（广告左侧）
         if (this.toggleBar) {
-            this.toggleBar.setPosition(this.adContainer.x, this.adContainer.y);
+            this.toggleBar.setPosition(baseX, baseY);
+        }
+
+        // 图标位置（切换条右侧）
+        const iconCenterX = baseX + config.iconMarginLeft + config.iconSize / 2;
+        const iconCenterY = baseY + config.adHeight / 2;
+        if (this.adIcon) {
+            this.adIcon.setPosition(iconCenterX, iconCenterY);
+        }
+        // 更新遮罩位置
+        if (this.adIconMask && this.adIcon) {
+            // 需要重新创建遮罩来更新位置
+            const maskGraphics = this.currentScene.make.graphics();
+            maskGraphics.fillStyle(0xffffff);
+            maskGraphics.fillCircle(iconCenterX, iconCenterY, config.iconSize / 2);
+            this.adIconMask.destroy();
+            this.adIconMask = maskGraphics.createGeometryMask();
+            this.adIcon.setMask(this.adIconMask);
+        }
+
+        // 文本位置
+        const textX = baseX + config.iconMarginLeft + config.iconSize + config.textMarginLeft;
+        if (this.gameNameText) {
+            this.gameNameText.setPosition(textX, baseY + 15);
+        }
+        if (this.scoreText) {
+            this.scoreText.setPosition(textX, baseY + 42);
+        }
+
+        // GO 按钮位置
+        const goButtonX = baseX + config.adWidth - config.goButtonMarginRight - config.goButtonWidth;
+        const goButtonY = baseY + (config.adHeight - config.goButtonHeight) / 2;
+        if (this.goButton) {
+            this.goButton.setPosition(goButtonX, goButtonY);
+        }
+        if (this.goButtonText) {
+            this.goButtonText.setPosition(
+                goButtonX + config.goButtonWidth / 2,
+                goButtonY + config.goButtonHeight / 2
+            );
         }
     },
 
@@ -322,10 +524,15 @@ const AdvertiseManager = {
      * 在新场景中重新创建广告
      */
     recreateAd() {
+        // 保存图标加载状态，场景切换后需要重新加载
+        const wasIconLoaded = this.iconLoaded;
+        this.iconLoaded = false;
+
         this.destroyAd();
         this.createAd();
 
         const canvas = LayoutConfig.CANVAS;
+        const config = this.config;
 
         // 根据当前状态设置位置
         if (this.isExpanded) {
@@ -333,7 +540,7 @@ const AdvertiseManager = {
         } else {
             this.adContainer.x = this.getCollapsedX();
         }
-        this.adContainer.y = canvas.HEIGHT - this.adImage.displayHeight;
+        this.adContainer.y = canvas.HEIGHT - config.adHeight;
         this.updatePositions();
         this.updateToggleBarArrow();
     },
@@ -342,9 +549,33 @@ const AdvertiseManager = {
      * 销毁广告组件
      */
     destroyAd() {
-        if (this.adImage) {
-            this.adImage.destroy();
-            this.adImage = null;
+        if (this.adBackground) {
+            this.adBackground.destroy();
+            this.adBackground = null;
+        }
+        if (this.adIcon) {
+            this.adIcon.destroy();
+            this.adIcon = null;
+        }
+        if (this.adIconMask) {
+            this.adIconMask.destroy();
+            this.adIconMask = null;
+        }
+        if (this.gameNameText) {
+            this.gameNameText.destroy();
+            this.gameNameText = null;
+        }
+        if (this.scoreText) {
+            this.scoreText.destroy();
+            this.scoreText = null;
+        }
+        if (this.goButton) {
+            this.goButton.destroy();
+            this.goButton = null;
+        }
+        if (this.goButtonText) {
+            this.goButtonText.destroy();
+            this.goButtonText = null;
         }
         if (this.toggleBar) {
             this.toggleBar.destroy();
@@ -360,10 +591,7 @@ const AdvertiseManager = {
      */
     getExpandedX() {
         const canvas = LayoutConfig.CANVAS;
-        if (this.adImage) {
-            return canvas.WIDTH - this.adImage.displayWidth;
-        }
-        return 0;
+        return canvas.WIDTH - this.config.adWidth;
     },
 
     /**
@@ -380,10 +608,7 @@ const AdvertiseManager = {
      */
     getExpandedY() {
         const canvas = LayoutConfig.CANVAS;
-        if (this.adImage) {
-            return canvas.HEIGHT - this.adImage.displayHeight;
-        }
-        return canvas.HEIGHT - 100;
+        return canvas.HEIGHT - this.config.adHeight;
     },
 
     /**
@@ -395,7 +620,7 @@ const AdvertiseManager = {
         }
 
         this.createAd();
-        if (!this.adImage) {
+        if (!this.adContainer) {
             return;
         }
 
@@ -403,10 +628,11 @@ const AdvertiseManager = {
         this.isExpanded = true;
 
         const canvas = LayoutConfig.CANVAS;
+        const config = this.config;
 
         // 设置初始位置（屏幕下方）
         this.adContainer.x = this.getExpandedX();
-        this.adContainer.y = canvas.HEIGHT + this.adImage.displayHeight;
+        this.adContainer.y = canvas.HEIGHT + config.adHeight;
         this.updatePositions();
 
         const targetY = this.getExpandedY();
@@ -415,7 +641,7 @@ const AdvertiseManager = {
         this.currentScene.tweens.add({
             targets: this.adContainer,
             y: targetY,
-            duration: this.config.slideInDuration,
+            duration: config.slideInDuration,
             ease: 'Back.easeOut',
             onUpdate: () => {
                 this.updatePositions();
@@ -424,8 +650,6 @@ const AdvertiseManager = {
                 this.isShown = true;
                 this.isAnimating = false;
                 this.updateToggleBarArrow();
-                // 启动自动切换定时器
-                this.startToggleTimer();
             }
         });
     },
@@ -511,16 +735,16 @@ const AdvertiseManager = {
             return;
         }
 
-        this.stopToggleTimer();
         this.isAnimating = true;
 
         const canvas = LayoutConfig.CANVAS;
+        const config = this.config;
 
         // 向右侧完全滑出
         this.currentScene.tweens.add({
             targets: this.adContainer,
-            x: canvas.WIDTH + this.adImage.displayWidth,
-            duration: this.config.collapseDuration,
+            x: canvas.WIDTH + config.adWidth,
+            duration: config.collapseDuration,
             ease: 'Power2.easeIn',
             onUpdate: () => {
                 this.updatePositions();
@@ -539,9 +763,9 @@ const AdvertiseManager = {
      * 广告点击回调（展开状态下）
      */
     onAdClick() {
-        console.log('广告被点击，跳转到:', this.config.adLink);
+        console.log('广告被点击，跳转到:', this.adData.gameAdUrl);
         // 打开广告链接
-        window.open(this.config.adLink, '_blank');
+        window.open(this.adData.gameAdUrl, '_blank');
     },
 
     // ==================== 工具方法 ====================
@@ -568,11 +792,6 @@ const AdvertiseManager = {
      */
     setConfig(newConfig) {
         Object.assign(this.config, newConfig);
-
-        // 如果修改了切换间隔，重置定时器
-        if (newConfig.toggleInterval && this.toggleTimerId) {
-            this.resetToggleTimer();
-        }
     },
 
     /**
@@ -580,26 +799,15 @@ const AdvertiseManager = {
      * @param {string} link - 跳转链接
      */
     setAdLink(link) {
-        this.config.adLink = link;
+        this.adData.gameAdUrl = link;
     },
 
-    /**
-     * 设置自动切换间隔
-     * @param {number} interval - 间隔时间（毫秒）
-     */
-    setToggleInterval(interval) {
-        this.config.toggleInterval = interval;
-        if (this.toggleTimerId) {
-            this.resetToggleTimer();
-        }
-    },
 
     /**
      * 重置广告管理器状态
      */
     reset() {
         this.stopCheckTimer();
-        this.stopToggleTimer();
         this.destroyAd();
 
         this.isShown = false;
@@ -608,6 +816,7 @@ const AdvertiseManager = {
         this.isStarted = false;
         this.startTime = 0;
         this.currentScene = null;
+        this.iconLoaded = false;
     },
 
     /**

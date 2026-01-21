@@ -99,6 +99,11 @@ const GameOverManager = {
 
         // 创建按钮（带动画）
         this.createButtons();
+
+        // 如果广告处于折叠状态，展开广告
+        if (AdvertiseManager.isShown && !AdvertiseManager.isExpanded) {
+            AdvertiseManager.expand();
+        }
     },
 
     /**
